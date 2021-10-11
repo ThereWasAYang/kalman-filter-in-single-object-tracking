@@ -22,7 +22,7 @@ initial_target_box = [729, 238, 764, 339]  # 目标初始bouding box
 initial_box_state = xyxy_to_xywh(initial_target_box)
 initial_state = np.array([[initial_box_state[0], initial_box_state[1], initial_box_state[2], initial_box_state[3],
                            0, 0]]).T  # [中心x,中心y,宽w,高h,dx,dy]
-IOU_Threshold = 0.3 # 匹配时的阈值
+IOU_Threshold = 0.3  # 匹配时的阈值
 
 # 状态转移矩阵，上一时刻的状态转移到当前时刻
 A = np.array([[1, 0, 0, 0, 1, 0],
@@ -31,7 +31,6 @@ A = np.array([[1, 0, 0, 0, 1, 0],
               [0, 0, 0, 1, 0, 0],
               [0, 0, 0, 0, 1, 0],
               [0, 0, 0, 0, 0, 1]])
-
 
 # 状态观测矩阵
 H = np.eye(6)
@@ -57,9 +56,10 @@ if __name__ == "__main__":
     cap = cv2.VideoCapture(video_path)
     # cv2.namedWindow("track", cv2.WINDOW_NORMAL)
     SAVE_VIDEO = False
+    out = 0
     if SAVE_VIDEO:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter('kalman_output.avi', fourcc, 20,(768,576))
+        out = cv2.VideoWriter('kalman_output.avi', fourcc, 20, (768, 576))
 
     # ---------状态初始化----------------------------------------
     frame_counter = 1
@@ -71,13 +71,21 @@ if __name__ == "__main__":
     while (True):
         # Capture frame-by-frame
         ret, frame = cap.read()
-
+        pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
+        print(f"frame_nums:{pos}")
         last_box_posterior = xywh_to_xyxy(X_posterior[0:4])
         plot_one_box(last_box_posterior, frame, color=(255, 255, 255), target=False)
         if not ret:
             break
         # print(frame_counter)
         label_file_path = os.path.join(label_path, file_name + "_" + str(frame_counter) + ".txt")
+        print(f"label_file_path:{label_file_path}")
+        if not os.path.isfile(label_file_path):
+            frame_counter -= 1
+            cap.set(cv2.CAP_PROP_POS_FRAMES, pos - 2)
+            if cv2.waitKey(0) & 0xFF == ord('q'):
+                break
+            continue
         with open(label_file_path, "r") as f:
             content = f.readlines()
             max_iou = IOU_Threshold
@@ -92,7 +100,7 @@ if __name__ == "__main__":
                     target_box = xyxy
                     max_iou = iou
                     max_iou_matched = True
-            if max_iou_matched == True:
+            if max_iou_matched:
                 # 如果找到了最大IOU BOX,则认为该框为观测值
                 plot_one_box(target_box, frame, target=True)
                 xywh = xyxy_to_xywh(target_box)
@@ -136,17 +144,17 @@ if __name__ == "__main__":
             box_posterior = xywh_to_xyxy(X_posterior[0:4])
             # plot_one_box(box_posterior, frame, color=(255, 255, 255), target=False)
             box_center = (
-            (int(box_posterior[0] + box_posterior[2]) // 2), int((box_posterior[1] + box_posterior[3]) // 2))
+                (int(box_posterior[0] + box_posterior[2]) // 2), int((box_posterior[1] + box_posterior[3]) // 2))
             trace_list = updata_trace_list(box_center, trace_list, 20)
             cv2.putText(frame, "Lost", (box_center[0], box_center[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                         (255, 0, 0), 2)
 
         draw_trace(frame, trace_list)
 
-
         cv2.putText(frame, "ALL BOXES(Green)", (25, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 0), 2)
         cv2.putText(frame, "TRACKED BOX(Red)", (25, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        cv2.putText(frame, "Last frame best estimation(White)", (25, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(frame, "Last frame best estimation(White)", (25, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                    (255, 255, 255), 2)
 
         cv2.imshow('track', frame)
         if SAVE_VIDEO:
@@ -158,7 +166,3 @@ if __name__ == "__main__":
     # When everything done, release the capture
     cap.release()
     cv2.destroyAllWindows()
-
-    # 关注我
-    # 你关注我了吗
-    # 关注一下
